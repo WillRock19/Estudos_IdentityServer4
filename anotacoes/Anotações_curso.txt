@@ -1,0 +1,238 @@
+
+
+														ASP DOTNET CORE OAUTH2 AND OPENID CONNECT
+														
+	
+	I. INTRODUCTION
+	
+		Roubar uma senha que é enviada do Client-side para o server: use um package sniffer;
+		
+		"Token-age-security": ao invés de enviar um usuário/senha no request do front para o servidor, começamos a utilizar tokens. Tokens representam um consentimento para acessar uma API do servidor.
+		
+			Pode ser usado no Client-side ou ser passado para a API e ser utilizado para garantir acesso daquele lado;
+			
+		Como se cria esses tokens? E como se passa eles para a aplicação?
+		
+			Antigamente, escreviam-se serviços de Tokens que cuidavam disso (era um endpoint que recebia um usuário/senha e retornava um token no formato JSON);
+			
+				PROBLEMA: ainda temos de compartilhar nosso usuário/senha com a aplicação e a API. Para uma aplicação própria, até pode ser OK, mas para aplicações de third-parts pode ser um problema (pois, novamente, podem interceptar esses dados);
+				
+				PROBLEMA 2: temos de reinventar a roda, tratando todos os pontos associados a um token (data de expiração, autenticação, serviço centralizado, etc.) nós mesmos.
+				
+		Do que precisamos então?
+		
+			1. Um Provedor de Identidade Centralizado
+			
+				É responsabilidade de um provedor de identidade (Identity Provider - IDP) autenticar um usu[ario e, se necessário, fornecer de maneira segura uma prova de sua identidade 
+				para a aplicação.
+				
+				É uma boa forma de lidar com tarefas associadas ao gerenciamento de identidade e acesso, como: 
+				
+					* registro de usuários e sua gestão; 
+					* bloqueio de usuários; 
+					* políticas de senhas (força e resets);
+					
+					-> Todas essas tarefas deveriam ser lidadas em um local centralizado para serem reutilizadas em todas as aplicações envolvidas.
+					
+				
+				E como armazenamos essas informações de Usuário/senha?
+				
+					Antigamente: salvávamos elas em um banco de dados, encriptadas (podia ser quebrado com força bruta). 
+					Hoje: utilizamos mecanismos de Key-stretching
+					
+						Key Stretching: algoritmos que consistem em encriptar senhas de novo e de novo, e por isso demora alguns segundos para obter o valor correto;
+						
+							PROBLEMA: Algoritmos de encriptação estão sempre mudando, então em até menos de um ano podemos ter que usar algoritmos novos e ficar fazendo alterações para todas as aplicações que salvam seus registros em todos os BD;
+							
+				Assim, algumas razões para manter tudo centralizado:
+
+					* Contas de usuários são reutilizadas em diferentes aplicações;
+					* Gerenciamento de tarefas de identidade e acesso são um problema comum entre todas as aplicações;
+					* Armazenar informações da conta de usuário é algo propenso a mudar (no exemplo dos algoritmos de encriptação);
+					* Formas de se autenticar o usuário são sempre adicionadas ou alteradas;
+					
+					
+				USANDO um IDP: usuário não vai mais se autenticar ao nível de aplicação, mas ao nível de IDP. 
+				
+					É para resolver todos estes que usamos IDPs e os IAM (Identity and Access Management);
+					
+				
+			2. OAUTH2
+			
+				É um protocolo de código aberto que permite a autorização de maneira segura utilizando um método padrão simples da web, mobile ou aplicações desktop.
+				
+							"OAuth 2.0 is used to grant authorization. It allows you to authorize Web App A access to your information from Web App B without requiring 
+								you to share your credentials. OAuth 2.0 was built with only authorization in mind and doesn't include any authentication mechanisms. 
+									In other words, OAuth 2.0 doesn't give the Authorization Server any way of verifying who the user is."
+				
+				O que ele faz?
+				
+					Define um Token de acesso, e a aplicação cliente pode requisitar este token para utilizá-lo ao contatar uma API;
+					Define como uma aplicação cliente pode obter seu Token de acesso de maneira mais segura (já que diferentes aplicações, como Angular e ASP.NET CORE, fazem isso de maneiras distintas);
+					Ao invés de termos de criar nossos próprios endpoints de criação/gerenciamento de Tokens, deixamos esse trabalho para o OAUTH2 (e só usamos os endpoints que ele já fornece);
+					O padrão OAUTH2 já define como usar seus endpoints para acessar diferentes tipos de aplicações cliente;
+					
+				
+				IMPORTANTE: O IdentityServer e o Azure AD implementam o padrão OAUTH2, mas eles devem ser usados apenas para acessos à APIs, e não para login em aplicações cliente (isso seria Autenticação, e não Autorização);
+				
+				
+			3. OPENID CONNECT
+				
+				É uma camada que trata tarefas de identidade colocada no topo do OAUTH2. Ele extende as funcionalidades do OAUTH2;
+				
+							"OpenID Connect builds on OAuth 2.0. It enables you, as the user, to verify your identity and to give some basic profile information 
+								without sharing your credentials."
+				
+				O que ele faz?
+				
+					Permite que a aplicação requisite um Identity Token junto a um Access Token;
+					O Identity Token pode ser usado para se logar em uma aplicação cliente;
+					Define um endpoint adicional (UserInfo) que a aplicação pode utilizar para obter mais informações do usuário;
+					Como o OAUTH2, define como diferentes tipos de aplicações cliente podem obter seus tokens de maneira segura do serviço de Security Token;
+					
+				IMPORTANTE: diferente do OAUTH2, pode ser usado em aplicações web que não conversam com APIs;
+				IMPORTANTE: OpenID Connect tells you who somebody is. OAuth 2.0 tells you what somebody is allowed to do.			
+				
+			
+			4. AUTHORIZATION vs AUTHENTICATION
+			
+				Authorization:  uma forma de autorizar que uma aplicação A entre em contato com uma API B sem que sejam compartilhadas as credenciais do usuário;
+				
+								Refers to rules that determine who is allowed to do what. E.g. Adam may be authorized to create and delete databases, while Usama is only authorised to read.
+				
+				Authentication: compartilamento de credenciais do usuário para autenticá-lo em uma aplicação e permitir acesso;
+			
+								Is the process of ascertaining that somebody really is who they claim to be.
+					
+				From StackOverflow: In terms of web apps, very crudely speaking, authentication is when you check login credentials to see if you recognize a user as logged in, and 
+									authorization is when you look up in your access control whether you allow the user to view, edit, delete or create content.
+			
+			
+			5. ACCESS TOKEN vs ID TOKEN
+			
+				* Access Token: An Access Token is a credential that can be used by an application to access an API. Access Tokens can be either an opaque string or a JSON web token. 
+								They inform the API that the bearer of the token has been authorized to access the API and perform specific actions specified by the scope that has been granted.
+							  
+								Access Tokens should be used as a Bearer credential and transmitted in an HTTP Authorization header to the API;
+					
+					
+				* Id Token: The ID Token is a JSON Web Token (JWT) that contains user profile information (like the user's name, email, and so forth), represented in the form of claims. 
+							These claims are statements about the user, which can be trusted if the consumer of the token can verify its signature.
+						  
+							You can get an ID Token for a user after they successfully authenticate;
+							
+							ID Tokens should not be used to gain access to an API;
+							
+							
+			
+				
+	II. UNDERSTANDING AUTHENTICATION WITH OPENID CONNECT
+	
+		1. Como functiona a autenticação?
+		
+			-> Client application (relying part) necessita o identity de um usuário 
+			
+				-> A aplicação cliente cria um request de autenticação, que redireciona o usuário para o Identity Provider (IDP);
+				
+					-> No IDP, o usuário prova quem ele é, e o IDP cria um Identity Token (token com informações do usuário);
+					
+						-> O IDP redireciona o usuário para a client application, passando para ela o identity token;
+						
+							-> Cliente recebe o token e o valida; se a validação for um sucesso, o client application terá uma prova da identidade do usuário;
+							
+									Em uma aplicação .NET Core, o token é armazenado em cookies, e cada request do usuário será acompanhado do mesmo para provar sua identidade;
+									
+									
+		2. Tipos de clientes
+		
+		
+			Confidential client: clientes capazes de manter a confidencialidade de suas credenciais (clientId e clientSecret);
+			
+				-> Exemplos: Aplicações que vivem no servidor (server-apps);
+				
+			Public clients: clientes incapazes de manter a confidencialidade de suas credênciais (clientId e clientSecret);
+			
+				-> Exemplos: aplicações client-side, ou seja, que vivem no dispositivo em que foram renderizadas (JavaScript, mobile, etc.);
+				
+			
+		3. Endpoints e Flows
+		
+			Endpoints:
+			
+				Authorization endopoint (IDP level): usado pela aplicação cliente para obter uma forma de se autenticar e/ou autorizar via redirection. É dele que sai o token para o cliente;
+				
+					Para realizá-lo, é necessário o TSL (SSL), ou seja, a rede precisa ser encriptada;
+					
+				
+				Redirection endpoint (client level): usado pelo IDP para retornar o código/token para a aplicação cliente. Ele é criado no lado do cliente;
+				
+				Token endpoint (IDP level): usada pela aplicação cliente para que ela possa fazr requisições de tokens (sem redirecionamento) para o IDP;
+		
+		
+			Flow: determinam como o id_token (e o access_token) são retornados ao cliente, variando de acordo com o tipo de aplicação, suas necessidades, etc;
+			
+				É importante escolher um Flow correto, pois escolher o errado pode trazer vulnerabilidades na segurança do sistema;
+				
+				
+			
+					Authorization Code-Flow: retorna um código de autorização do Authorization endpoint e tokens do Token Endpoint;
+
+						O código é uma credencial de uso único e curto tempo de vida, usada para verificar se o usuário que se logou no nível do IDP é o mesmo que iniciou o flow no nível da aplicação web;
+						
+						É adequado para confidential Clients e permite acesso de longo período;
+						
+					
+					Implicit-flow: retorna todos os tokens do Authorization Endpoint, assim, o Token Endpoint não é utilizado. 
+					
+						Não há autenticação do cliente, o que torna ela adequada para Public Clientes, já que estes não teriam como armazenar os segredos do cliente;
+						
+						
+					Hybrid-Flow: retorna alguns tokens do Authorization endpoint e outros do Token Endpoint;
+					
+						Adequado para confidential Clients e permite long-lived access;
+						
+						Permite recuperar um Identity Token do Authorization Endpoint, que pode ser verificado antes das chamadas ao Token Endpoint;
+						
+						
+			Flow for ASP.NET Core MVC
+			
+				É um Confidential Client (server-side app);
+				
+				Para web apps server-side, renovar tokens com um refresh token se torna necessário para acessos de longos períodos;
+				
+				
+				
+		4. Identity Server 4
+		
+			É um framework open-source para ASP.NET Core que disponibiliza o OpenId Connect e o OAuth2;
+			
+			
+	III. SECURING YOUR WEB APPLICATION
+	
+		1. The Hybrid Flow
+		
+			Quando faço uma requisição para o endpoint do IDP, eu passo alguns atributos via QueryString. Um deles é o "response_type". É nele que eu defino, para o IDP, qual o fluxo que meu cliente deseja seguir.
+			
+				responde_type = code => Authorization Code Flow
+				responde_type = id_token => Implicit Flow
+				responde_type = id_token token => Implicit Flow
+				
+				responde_type = code id_token => Hybrid Flow
+				responde_type = code token  => Hybrid Flow
+				responde_type = code id_token token  => Hybrid Flow
+				
+			
+			
+			
+				
+				
+				
+				
+				
+				
+			
+			
+			
+			
+							
+								
